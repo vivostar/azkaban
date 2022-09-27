@@ -29,7 +29,8 @@ HADOOP_HOME=${HADOOP_HOME:-""}  # needed for set -o nounset aove
 
 if [ "$HADOOP_HOME" != "" ]; then
   echo "Using Hadoop from $HADOOP_HOME"
-  CLASSPATH="${CLASSPATH}:${HADOOP_HOME}/conf:${HADOOP_HOME}/*:${HADOOP_HOME}/share/hadoop/common/*:${HADOOP_HOME}/share/hadoop/yarn/*"
+  HADOOP_CLASSPATH=`hadoop classpath`
+  CLASSPATH="${CLASSPATH}:${HADOOP_CLASSPATH}"
   JAVA_LIB_PATH="-Djava.library.path=$HADOOP_HOME/lib/native/Linux-amd64-64"
 else
   echo "Error: HADOOP_HOME is not set. Hadoop job types will not run properly."
