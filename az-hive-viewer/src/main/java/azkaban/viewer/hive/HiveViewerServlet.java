@@ -21,12 +21,16 @@ import java.sql.ResultSetMetaData;
 import java.sql.Statement;
 import java.sql.SQLException;
 
+import org.apache.hive.jdbc.HiveDriver;
+
 public class HiveViewerServlet extends LoginAbstractAzkabanServlet {
 
   private final Props props;
   private final String viewerName;
   private final String viewerPath;
   private final String viewerDbUrl;
+  private final String viewerDbUser;
+  private final String viewerDbPass;
 
   public HiveViewerServlet(final Props props) {
     super(new ArrayList<>());
@@ -34,6 +38,8 @@ public class HiveViewerServlet extends LoginAbstractAzkabanServlet {
     this.viewerName = props.getString("viewer.name");
     this.viewerPath = props.getString("viewer.path");
     this.viewerDbUrl = props.getString("viewer.dburl");
+    this.viewerDbUser = props.getString("viewer.dbuser");
+    this.viewerDbPass = props.getString("viewer.dbpass");
   }
 
   @Override
@@ -49,38 +55,53 @@ public class HiveViewerServlet extends LoginAbstractAzkabanServlet {
     final boolean ajax = hasParam(req, "ajax");
     try {
       if (ajax) {
-        final String sqlStatement = getParam(req, "sqlexec");
-        Map<String, Object> ret = new HashMap<>();
-        List<String> headerEles = new ArrayList<>();
-        List<List<String>> rowEles = new ArrayList<>();
-        List<List<String>> dataEles = new ArrayList<>();
-
-        ResultSet rs = getResultSet(sqlStatement);
-        ResultSetMetaData rsmd = getResultSetMetaData(rs);
-        int count = rsmd.getColumnCount();
-
-        for(int i = 1; i<=count; i++) {
-          headerEles.add(rsmd.getColumnName(i));
-        } 
-
-        while (rs.next()) {
-          List<String> row = new ArrayList<>();
-          for (int i = 1; i <= count; i ++) {
-            row.add(rs.getObject(i).toString());
+        String ajaxParam = getParam(req, "ajax");
+        if (ajaxParam.equals("sqlStatement")) {
+          final String sqlStatement = getParam(req, "sqlexec");
+          Map<String, Object> ret = new HashMap<>();
+          List<String> headerEles = new ArrayList<>();
+          List<List<String>> rowEles = new ArrayList<>();
+          List<List<String>> dataEles = new ArrayList<>();
+  
+          ResultSet rs = getResultSet(sqlStatement);
+          ResultSetMetaData rsmd = getResultSetMetaData(rs);
+          int count = rsmd.getColumnCount();
+  
+          for(int i = 1; i<=count; i++) {
+            headerEles.add(rsmd.getColumnName(i));
           } 
-          dataEles.add(row);
+  
+          while (rs.next()) {
+            List<String> row = new ArrayList<>();
+            for (int i = 1; i <= count; i ++) {
+              row.add(rs.getObject(i).toString());
+            } 
+            dataEles.add(row);
+          }
+          ret.put("header", headerEles);
+          ret.put("data", dataEles);
+          
+          this.writeJSON(resp, ret);
+        } else if (ajaxParam.equals("getDbNames")) {
+          ResultSet rs = getResultSet("show databases");
+          List<String> dbNames = new ArrayList<>();
+          Map<String, Object> ret = new HashMap<>();
+          while (rs.next()) {
+            dbNames.add(rs.getString(1));
+          }
+          ret.put("dbnames", dbNames);
+          this.writeJSON(resp, ret);
+        } else if (ajaxParam.equals("getTableNames")) {
+          final String dbname = getParam(req, "db");
+          List<String> tbNames = new ArrayList<>();
+          Map<String, Object> ret = new HashMap<>();
+          ResultSet rs = getResultSet("use " + dbname, "show tables");
+          while (rs.next()) {
+            tbNames.add(rs.getString(2));
+          }
+          ret.put("tables", tbNames);
+          this.writeJSON(resp, ret);
         }
-
-        // headerEles.add("name");
-        // headerEles.add("age");
-        // rowEles.add("xiaoming");
-        // rowEles.add("27");
-        // dataEles.add(rowEles);
-
-        ret.put("header", headerEles);
-        ret.put("data", dataEles);
-        
-        this.writeJSON(resp, ret);
       } else {
         final Page page =
         newPage(req, resp, session,
@@ -102,13 +123,30 @@ public class HiveViewerServlet extends LoginAbstractAzkabanServlet {
   private ResultSet getResultSet(String sqlStatement) throws SQLException {
   
     //Registering the Driver
-    DriverManager.registerDriver(new org.apache.derby.jdbc.ClientDriver());
-    Connection con = DriverManager.getConnection(viewerDbUrl);
+    // DriverManager.registerDriver(new org.apache.derby.jdbc.ClientDriver());
+    DriverManager.registerDriver(new org.apache.hive.jdbc.HiveDriver());
+    Connection con = DriverManager.getConnection(viewerDbUrl, viewerDbUser, viewerDbPass);
     System.out.println("Connection established......");
     //Creating a Statement object
     Statement stmt = con.createStatement();
     //Retrieving the data
     ResultSet rs = stmt.executeQuery(sqlStatement);
+    return rs;
+    
+  }
+
+  private ResultSet getResultSet(String sqlStatement, String sql2) throws SQLException {
+  
+    //Registering the Driver
+    // DriverManager.registerDriver(new org.apache.derby.jdbc.ClientDriver());
+    DriverManager.registerDriver(new org.apache.hive.jdbc.HiveDriver());
+    Connection con = DriverManager.getConnection(viewerDbUrl, viewerDbUser, viewerDbPass);
+    System.out.println("Connection established......");
+    //Creating a Statement object
+    Statement stmt = con.createStatement();
+    //Retrieving the data
+    stmt.executeQuery(sqlStatement);
+    ResultSet rs = stmt.executeQuery(sql2);
     return rs;
     
   }

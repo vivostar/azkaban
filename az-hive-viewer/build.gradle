@@ -21,7 +21,7 @@ dependencies {
     compileOnly project(":azkaban-common")
     compileOnly project(":azkaban-web-server")
     compile 'org.apache.derby:derbyclient:10.14.2.0'
-
+    compile 'org.apache.hive:hive-jdbc:3.1.2:standalone'
 }
 
 distributions {
